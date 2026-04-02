@@ -46,8 +46,11 @@ class PDFConverterBot:
         self._semaphore = asyncio.Semaphore(settings.max_concurrent_jobs)
         self._rate_limiter = DailyRateLimiter(settings.daily_conversions_per_user)
 
-    def build_application(self) -> Application:
-        application = Application.builder().token(self.settings.telegram_bot_token).build()
+    def build_application(self, enable_updater: bool = True) -> Application:
+        builder = Application.builder().token(self.settings.telegram_bot_token)
+        if not enable_updater:
+            builder = builder.updater(None)
+        application = builder.build()
 
         application.add_handler(CommandHandler("start", self.start_command))
         application.add_handler(CommandHandler("help", self.help_command))
@@ -198,3 +201,5 @@ class PDFConverterBot:
         if isinstance(exc, ProviderExecutionError):
             return "Conversion provider failed for this file. Please try another format."
         return "Conversion failed. Please try again."
+
+

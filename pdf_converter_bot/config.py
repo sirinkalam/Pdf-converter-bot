@@ -11,6 +11,8 @@ class Settings:
     telegram_bot_token: str
     ilovepdf_public_key: str
     ilovepdf_secret_key: str
+    telegram_webhook_url: str = ""
+    telegram_webhook_secret: str = ""
     max_file_mb: int = 20
     max_concurrent_jobs: int = 2
     conversion_timeout_seconds: int = 120
@@ -23,6 +25,8 @@ def load_settings() -> Settings:
     token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
     public_key = os.getenv("ILOVEPDF_PUBLIC_KEY", "").strip()
     secret_key = os.getenv("ILOVEPDF_SECRET_KEY", "").strip()
+    webhook_url = os.getenv("TELEGRAM_WEBHOOK_URL", "").strip()
+    webhook_secret = os.getenv("TELEGRAM_WEBHOOK_SECRET", "").strip()
     max_file_mb = int(os.getenv("MAX_FILE_MB", "20"))
     max_concurrent_jobs = int(os.getenv("MAX_CONCURRENT_JOBS", "2"))
     conversion_timeout_seconds = int(os.getenv("CONVERSION_TIMEOUT_SECONDS", "120"))
@@ -44,6 +48,8 @@ def load_settings() -> Settings:
         telegram_bot_token=token,
         ilovepdf_public_key=public_key,
         ilovepdf_secret_key=secret_key,
+        telegram_webhook_url=webhook_url,
+        telegram_webhook_secret=webhook_secret,
         max_file_mb=max_file_mb,
         max_concurrent_jobs=max_concurrent_jobs,
         conversion_timeout_seconds=conversion_timeout_seconds,
