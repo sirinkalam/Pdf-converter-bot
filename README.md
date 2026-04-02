@@ -49,8 +49,8 @@ copy .env.example .env
 
 Webhook endpoint in this repo:
 
-- `POST /api/main`
-- Health check: `GET /api/main`
+- `POST /`
+- Health check: `GET /`
 
 After deployment, set Telegram webhook:
 
@@ -78,3 +78,4 @@ Uploaded and generated files are kept only in a per-request temporary directory 
 
 - Dockerfile included for container platforms.
 - Linux service template: `deploy/systemd/pdf-converter-bot.service`
+
