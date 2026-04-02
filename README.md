@@ -43,28 +43,11 @@ python main.py
 - `CONVERSION_TIMEOUT_SECONDS` (default: `120`)
 - `DAILY_CONVERSIONS_PER_USER` (default: `20`)
 
-## Deploy on Render (24/7)
-
-This repo includes `render.yaml` for a Render Background Worker.
-
-1. Push this project to GitHub.
-2. In Render, choose **New +** -> **Blueprint**.
-3. Select your repo; Render detects `render.yaml`.
-4. Set secret env vars in Render:
-   - `TELEGRAM_BOT_TOKEN`
-   - `ILOVEPDF_PUBLIC_KEY`
-   - `ILOVEPDF_SECRET_KEY`
-5. Deploy.
-
-Notes:
-- Use a paid worker plan for always-on behavior.
-- Keep only one active bot instance (stop local bot after cloud deploy) to avoid duplicate replies.
-
 ## Privacy
 
 Uploaded and generated files are kept only in a per-request temporary directory and deleted immediately in `finally`, regardless of success or failure.
 
-## Other Deploy Options
+## Deploy Options
 
 - Dockerfile included for container platforms.
 - Linux service template: `deploy/systemd/pdf-converter-bot.service`
