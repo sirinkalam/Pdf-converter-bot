@@ -7,6 +7,11 @@ def test_validate_file_accepts_supported_extension() -> None:
     assert ext == "docx"
 
 
+def test_validate_file_accepts_pdf() -> None:
+    ext = validate_file("sample.pdf", size_bytes=1024, max_file_mb=20)
+    assert ext == "pdf"
+
+
 def test_validate_file_rejects_unsupported_extension() -> None:
     try:
         validate_file("archive.zip", size_bytes=1024, max_file_mb=20)

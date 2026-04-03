@@ -18,6 +18,7 @@ SUPPORTED_EXTENSIONS = {
     "odt",
     "rtf",
     "txt",
+    "pdf",
 }
 
 IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "tiff"}
