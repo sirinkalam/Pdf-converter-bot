@@ -1,15 +1,16 @@
 # Telegram PDF Converter Bot
 
-A Telegram bot that converts supported files to PDF using iLovePDF, designed for webhook/serverless deployment.
+A Telegram bot that processes files with iLovePDF in webhook mode (Vercel/serverless friendly).
 
 ## Features
 
 - Commands: `/start`, `/help`, `/formats`
-- Supports common formats: `doc, docx, xls, xlsx, ppt, pptx, jpg, jpeg, png, tiff, odt, rtf, txt`
+- Interactive actions after upload (button-based)
+- For non-PDF files: convert to PDF
+- For PDF files: merge, split, compress
 - Max upload size configurable (default 20 MB)
-- Daily per-user conversion cap (default 20/day)
-- Webhook mode for platforms like Vercel
-- Immediate file deletion after each request (success or failure)
+- Daily per-user operation cap (default 20/day)
+- Immediate temporary-file cleanup after each job
 
 ## Local Setup
 
@@ -42,9 +43,9 @@ copy .env.example .env
 ## Vercel Deploy (Webhook)
 
 1. Push this repo to GitHub.
-2. In Vercel, import this repository.
-3. Ensure root directory is repo root.
-4. Set environment variables in Vercel project settings.
+2. Import repo in Vercel.
+3. Root directory must be repo root.
+4. Add environment variables in Vercel.
 5. Deploy.
 
 Webhook endpoint in this repo:
@@ -64,7 +65,7 @@ Check webhook status:
 python main.py webhook-info
 ```
 
-If you need to clear webhook:
+If needed, clear webhook:
 
 ```bash
 python main.py delete-webhook
@@ -72,10 +73,9 @@ python main.py delete-webhook
 
 ## Privacy
 
-Uploaded and generated files are kept only in a per-request temporary directory and deleted immediately in `finally`, regardless of success or failure.
+Uploaded and generated files are stored only in per-job temporary directories and deleted after processing.
 
 ## Other Deploy Options
 
 - Dockerfile included for container platforms.
 - Linux service template: `deploy/systemd/pdf-converter-bot.service`
-

@@ -35,9 +35,23 @@ class ILovePDFProvider:
         self.http_client_factory = http_client_factory
 
     async def convert_to_pdf(self, input_path: Path, extension: str, mime_type: str | None) -> Path:
+        tool = choose_ilovepdf_tool(extension)
+        return await self.process_files(
+            tool=tool,
+            inputs=[(input_path, mime_type)],
+            output_basename=input_path.stem,
+        )
+
+    async def process_files(
+        self,
+        tool: str,
+        inputs: list[tuple[Path, str | None]],
+        output_basename: str,
+        process_params: dict[str, Any] | None = None,
+    ) -> Path:
         try:
             return await asyncio.wait_for(
-                self._convert_internal(input_path, extension, mime_type),
+                self._process_internal(tool, inputs, output_basename, process_params or {}),
                 timeout=self.timeout_seconds,
             )
         except asyncio.TimeoutError as exc:
@@ -49,10 +63,19 @@ class ILovePDFProvider:
         except Exception as exc:
             raise ProviderExecutionError("Conversion provider failed.") from exc
 
-    async def _convert_internal(self, input_path: Path, extension: str, mime_type: str | None) -> Path:
-        tool = choose_ilovepdf_tool(extension)
+    async def _process_internal(
+        self,
+        tool: str,
+        inputs: list[tuple[Path, str | None]],
+        output_basename: str,
+        process_params: dict[str, Any],
+    ) -> Path:
+        if not inputs:
+            raise ProviderExecutionError("No input files provided.")
+
         task_id: str | None = None
         server: str | None = None
+        output_dir = inputs[0][0].parent
 
         async with self.http_client_factory(timeout=self.timeout_seconds) as client:
             token = await self._authenticate(client)
@@ -65,17 +88,26 @@ class ILovePDFProvider:
                 raise ProviderExecutionError("Invalid start-task response from iLovePDF.")
 
             try:
-                upload_payload = await self._upload_file(
-                    client=client,
-                    headers=headers,
-                    server=server,
-                    task_id=task_id,
-                    input_path=input_path,
-                    mime_type=mime_type,
-                )
-                server_filename = str(upload_payload.get("server_filename", ""))
-                if not server_filename:
-                    raise ProviderExecutionError("Upload step did not return server filename.")
+                files_payload: list[dict[str, str]] = []
+                for input_path, mime_type in inputs:
+                    upload_payload = await self._upload_file(
+                        client=client,
+                        headers=headers,
+                        server=server,
+                        task_id=task_id,
+                        input_path=input_path,
+                        mime_type=mime_type,
+                    )
+                    server_filename = str(upload_payload.get("server_filename", ""))
+                    if not server_filename:
+                        raise ProviderExecutionError("Upload step did not return server filename.")
+
+                    files_payload.append(
+                        {
+                            "server_filename": server_filename,
+                            "filename": input_path.name,
+                        }
+                    )
 
                 await self._process_task(
                     client=client,
@@ -83,8 +115,8 @@ class ILovePDFProvider:
                     server=server,
                     task_id=task_id,
                     tool=tool,
-                    server_filename=server_filename,
-                    original_filename=input_path.name,
+                    files_payload=files_payload,
+                    process_params=process_params,
                 )
                 content, content_type = await self._download_task(
                     client=client,
@@ -95,10 +127,7 @@ class ILovePDFProvider:
             finally:
                 await self._delete_task(client, headers, server, task_id)
 
-        output_path = input_path.with_suffix(".pdf")
-        output_bytes = self._extract_pdf_bytes(content, content_type)
-        output_path.write_bytes(output_bytes)
-        return output_path
+        return self._write_output_file(output_dir, output_basename, tool, content, content_type)
 
     async def _authenticate(self, client: Any) -> str:
         response = await client.post(AUTH_URL, data={"public_key": self.public_key})
@@ -140,20 +169,16 @@ class ILovePDFProvider:
         server: str,
         task_id: str,
         tool: str,
-        server_filename: str,
-        original_filename: str,
+        files_payload: list[dict[str, str]],
+        process_params: dict[str, Any],
     ) -> None:
         url = PROCESS_URL_TEMPLATE.format(server=server)
-        payload = {
+        payload: dict[str, Any] = {
             "task": task_id,
             "tool": tool,
-            "files": [
-                {
-                    "server_filename": server_filename,
-                    "filename": original_filename,
-                }
-            ],
+            "files": files_payload,
         }
+        payload.update(process_params)
         response = await client.post(url, headers=headers, json=payload)
         self._ensure_success_json(response)
 
@@ -188,19 +213,27 @@ class ILovePDFProvider:
         except Exception:
             return
 
-    @staticmethod
-    def _extract_pdf_bytes(content: bytes, content_type: str) -> bytes:
-        lower_content_type = content_type.lower()
-        if "zip" in lower_content_type or zipfile.is_zipfile(io.BytesIO(content)):
-            with zipfile.ZipFile(io.BytesIO(content)) as zf:
-                names = zf.namelist()
-                if not names:
-                    raise ProviderExecutionError("Downloaded ZIP has no files.")
-                pdf_names = [name for name in names if name.lower().endswith(".pdf")]
-                target = pdf_names[0] if pdf_names else names[0]
-                return zf.read(target)
+    def _write_output_file(
+        self,
+        output_dir: Path,
+        output_basename: str,
+        tool: str,
+        content: bytes,
+        content_type: str,
+    ) -> Path:
+        is_zip = self._is_zip_content(content, content_type)
+        safe_basename = output_basename or "output"
+        suffix = ".zip" if is_zip else ".pdf"
+        output_path = output_dir / f"{safe_basename}_{tool}{suffix}"
+        output_path.write_bytes(content)
+        return output_path
 
-        return content
+    @staticmethod
+    def _is_zip_content(content: bytes, content_type: str) -> bool:
+        lower_content_type = content_type.lower()
+        if "zip" in lower_content_type:
+            return True
+        return zipfile.is_zipfile(io.BytesIO(content))
 
     def _ensure_success_json(self, response: Any) -> dict[str, Any]:
         if response.status_code >= 400:
